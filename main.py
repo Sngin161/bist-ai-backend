@@ -29,7 +29,8 @@ def home():
 def analyze(symbol: str):
 
     try:
-        data = yf.download(symbol + ".IS", period="3mo", interval="1d")
+        ticker = yf.Ticker(symbol + ".IS")
+data = ticker.history(period="3mo")
 
         if data.empty:
             return {"error": "Veri bulunamadı"}
