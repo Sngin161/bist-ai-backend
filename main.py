@@ -5,13 +5,10 @@ import pandas as pd
 app = FastAPI()
 
 def calculate_rsi(data, period=14):
-    if len(data) < period + 1:
-        return None
-
     delta = data.diff()
 
-    gain = delta.where(delta > 0, 0)
-    loss = -delta.where(delta < 0, 0)
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
 
     avg_gain = gain.rolling(window=period).mean()
     avg_loss = loss.rolling(window=period).mean()
@@ -25,25 +22,17 @@ def calculate_rsi(data, period=14):
 def home():
     return {"status": "API is running"}
 
-@app.get("/analyze/{symbol}")
-def analyze(symbol: str):
 
-    try:
-        ticker = yf.Ticker(symbol + ".IS")
-data = ticker.history(period="3mo")
+def calculate_rsi(data, period=14):
+    delta = data.diff()
 
-        if data.empty:
-            return {"error": "Veri bulunamadı"}
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
 
-        rsi = calculate_rsi(data["Close"])
+    avg_gain = gain.rolling(window=period).mean()
+    avg_loss = loss.rolling(window=period).mean()
 
-        if rsi is None:
-            return {"error": "Yeterli veri yok"}
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
 
-        return {
-            "symbol": symbol,
-            "rsi": round(float(rsi), 2)
-        }
-
-    except Exception as e:
-        return {"error": str(e)}
+    return rsi.iloc[-1]
