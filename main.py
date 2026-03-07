@@ -5,6 +5,9 @@ import pandas as pd
 app = FastAPI()
 
 def calculate_rsi(data, period=14):
+    if len(data) < period + 1:
+        return None
+
     delta = data.diff()
 
     gain = delta.where(delta > 0, 0)
@@ -18,17 +21,28 @@ def calculate_rsi(data, period=14):
 
     return rsi.iloc[-1]
 
+@app.get("/")
+def home():
+    return {"status": "API is running"}
+
 @app.get("/analyze/{symbol}")
 def analyze(symbol: str):
 
-    data = yf.download(symbol + ".IS", period="3mo", interval="1d")
+    try:
+        data = yf.download(symbol + ".IS", period="3mo", interval="1d")
 
-    if data.empty:
-        return {"error": "Veri bulunamadı"}
+        if data.empty:
+            return {"error": "Veri bulunamadı"}
 
-    rsi = calculate_rsi(data["Close"])
+        rsi = calculate_rsi(data["Close"])
 
-    return {
-        "symbol": symbol,
-        "rsi": round(float(rsi), 2)
-    }
+        if rsi is None:
+            return {"error": "Yeterli veri yok"}
+
+        return {
+            "symbol": symbol,
+            "rsi": round(float(rsi), 2)
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
