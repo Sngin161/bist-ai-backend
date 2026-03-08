@@ -2,31 +2,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
 import pandas as pd
-import os
 
 app = FastAPI()
 
-# -------------------------
-# CORS AYARI (GitHub için zorunlu)
-# -------------------------
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # İstersen sonra güvenli domain yapabiliriz
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# -------------------------
-# RSI HESAPLAMA
-# -------------------------
-def calculate_rsi(close_prices, period=14):
-
-    if len(close_prices) < period + 1:
-        return None
-
-    delta = close_prices.diff()
-
+# RSI
+def calculate_rsi(data, period=14):
+    delta = data.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
 
@@ -38,35 +28,71 @@ def calculate_rsi(close_prices, period=14):
 
     return rsi.iloc[-1]
 
-# -------------------------
-# ANA TEST ENDPOINT
-# -------------------------
+# EMA
+def calculate_ema(data, period):
+    return data.ewm(span=period, adjust=False).mean().iloc[-1]
+
+# MACD
+def calculate_macd(data):
+    ema12 = data.ewm(span=12, adjust=False).mean()
+    ema26 = data.ewm(span=26, adjust=False).mean()
+    macd = ema12 - ema26
+    return macd.iloc[-1]
+
 @app.get("/")
 def home():
-    return {"status": "API is running"}
+    return {"status": "API Running"}
 
-# -------------------------
-# ANALİZ ENDPOINT
-# -------------------------
 @app.get("/analyze/{symbol}")
 def analyze(symbol: str):
 
-    try:
-        ticker = yf.Ticker(symbol.upper() + ".IS")
-        data = ticker.history(period="3mo")
+    ticker = yf.Ticker(symbol.upper() + ".IS")
+    data = ticker.history(period="6mo")
 
-        if data.empty:
-            return {"error": "Veri bulunamadı"}
+    if data.empty:
+        return {"error": "Veri bulunamadı"}
 
-        rsi = calculate_rsi(data["Close"])
+    close = data["Close"]
 
-        if rsi is None:
-            return {"error": "Yeterli veri yok"}
+    rsi = calculate_rsi(close)
+    ema20 = calculate_ema(close, 20)
+    ema50 = calculate_ema(close, 50)
+    macd = calculate_macd(close)
 
-        return {
-            "symbol": symbol.upper(),
-            "rsi": round(float(rsi), 2)
-        }
+    # Skor Sistemi
+    score = 50
 
-    except Exception as e:
-        return {"error": str(e)}
+    if rsi < 30:
+        score += 20
+    elif rsi > 70:
+        score -= 20
+
+    if ema20 > ema50:
+        score += 15
+    else:
+        score -= 15
+
+    if macd > 0:
+        score += 15
+    else:
+        score -= 15
+
+    score = max(0, min(100, score))
+
+    # Sinyal
+    if score >= 75:
+        signal = "GÜÇLÜ AL 🟢"
+    elif score <= 35:
+        signal = "GÜÇLÜ SAT 🔴"
+    else:
+        signal = "BEKLE 🟡"
+
+    return {
+        "symbol": symbol.upper(),
+        "rsi": round(float(rsi),2),
+        "ema20": round(float(ema20),2),
+        "ema50": round(float(ema50),2),
+        "macd": round(float(macd),4),
+        "score": score,
+        "signal": signal
+    }
