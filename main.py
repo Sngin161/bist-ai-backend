@@ -1,11 +1,24 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
 import pandas as pd
+import os
 
 app = FastAPI()
 
 # -------------------------
-# RSI HESAPLAMA FONKSİYONU
+# CORS AYARI (GitHub için zorunlu)
+# -------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # İstersen sonra güvenli domain yapabiliriz
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# -------------------------
+# RSI HESAPLAMA
 # -------------------------
 def calculate_rsi(close_prices, period=14):
 
@@ -25,14 +38,12 @@ def calculate_rsi(close_prices, period=14):
 
     return rsi.iloc[-1]
 
-
 # -------------------------
-# ANA SAYFA TEST
+# ANA TEST ENDPOINT
 # -------------------------
 @app.get("/")
 def home():
     return {"status": "API is running"}
-
 
 # -------------------------
 # ANALİZ ENDPOINT
@@ -41,8 +52,7 @@ def home():
 def analyze(symbol: str):
 
     try:
-        # BIST için .IS ekliyoruz
-        ticker = yf.Ticker(symbol + ".IS")
+        ticker = yf.Ticker(symbol.upper() + ".IS")
         data = ticker.history(period="3mo")
 
         if data.empty:
