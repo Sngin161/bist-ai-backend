@@ -22,18 +22,11 @@ def calculate_rsi(data, period=14):
     delta = data.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
-
     avg_gain = gain.rolling(window=period).mean()
     avg_loss = loss.rolling(window=period).mean()
-
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
-
     return rsi.iloc[-1]
-
-@app.get("/")
-def home():
-    return {"status": "AI Backend Running"}
 
 @app.get("/analyze/{symbol}")
 def analyze(symbol: str):
@@ -47,23 +40,28 @@ def analyze(symbol: str):
     close = data["Close"]
     rsi = calculate_rsi(close)
 
+    # AI Prompt
     prompt = f"""
-    Sen profesyonel bir finans analistisin.
+    Sen profesyonel bir borsa analistisin.
     Hisse: {symbol.upper()}
-    RSI değeri: {round(float(rsi),2)}
+    RSI: {round(float(rsi),2)}
 
-    Bu veriye göre kısa, net ve profesyonel bir piyasa analizi yaz.
+    Bu veriye göre kısa, net ve profesyonel bir analiz yaz.
     """
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "Finans analisti gibi konuş."},
-            {"role": "user", "content": prompt}
-        ]
-    )
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Finans analisti gibi cevap ver."},
+                {"role": "user", "content": prompt}
+            ]
+        )
 
-    ai_comment = response.choices[0].message.content
+        ai_comment = response.choices[0].message.content
+
+    except Exception as e:
+        return {"error": f"AI Hatası: {str(e)}"}
 
     return {
         "symbol": symbol.upper(),
