@@ -1,11 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
-import pandas as pd
 
 app = FastAPI()
 
-# CORS
+# CORS (GitHub Pages için gerekli)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -87,6 +86,14 @@ def analyze(symbol: str):
     else:
         signal = "BEKLE 🟡"
 
+    # AI Yorum
+    if score >= 75:
+        comment = "Trend güçlü ve pozitif momentum var."
+    elif score <= 35:
+        comment = "Trend zayıf, risk yüksek."
+    else:
+        comment = "Piyasa kararsız, beklemek mantıklı olabilir."
+
     return {
         "symbol": symbol.upper(),
         "rsi": round(float(rsi),2),
@@ -94,5 +101,6 @@ def analyze(symbol: str):
         "ema50": round(float(ema50),2),
         "macd": round(float(macd),4),
         "score": score,
-        "signal": signal
+        "signal": signal,
+        "comment": comment
     }
